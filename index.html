@@ -7,257 +7,334 @@
   <style>
     body {
       margin: 0;
-      padding: 0;
       font-family: Arial, sans-serif;
-      background-color: #111;
       overflow: hidden;
+      background-color: #eef;
     }
-    #gameCanvas {
+    canvas {
       display: block;
-      margin: auto;
-      background: url('https://freepngimg.com/thumb/grass/104352-green-grass-free-transparent-image-hd.png');
-      background-size: cover;
-      border: 2px solid #333;
     }
     #ui {
       position: absolute;
       top: 10px;
       right: 10px;
       color: red;
-      font-size: 18px;
-      background-color: rgba(0, 0, 0, 0.6);
-      padding: 10px;
-      border-radius: 8px;
+      font-weight: bold;
+      font-size: 16px;
     }
-    #controls {
+    #buttons {
       position: absolute;
-      bottom: 20px;
+      bottom: 10px;
       width: 100%;
       display: flex;
       justify-content: center;
       gap: 20px;
     }
-    .btn {
+    .game-button {
       padding: 10px 20px;
-      background-color: #333;
-      color: #fff;
-      border: none;
-      border-radius: 5px;
+      font-size: 16px;
       cursor: pointer;
+      background-color: #222;
+      color: white;
+      border: none;
+      border-radius: 10px;
     }
-    #disclaimer {
+    #start-screen, #disclaimer, #end-screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.8);
+      color: white;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+    }
+    #start-screen h1, #end-screen h1 {
+      font-size: 48px;
+    }
+    #disclaimer p {
+      padding: 0 30px;
+      max-width: 700px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .pause-label {
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      background: rgba(0, 0, 0, 0.9);
-      color: white;
-      padding: 20px;
-      border-radius: 10px;
-      text-align: center;
-    }
-    #intro {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      color: white;
-      background-color: rgba(0, 0, 0, 0.6);
-      padding: 10px;
-      border-radius: 8px;
-      max-width: 300px;
+      font-size: 64px;
+      color: yellow;
+      font-weight: bold;
+      z-index: 99;
+      display: none;
     }
   </style>
 </head>
 <body>
-  <div id="disclaimer">
+  <div id="start-screen">
     <h1>FoxWallet Tower Defense</h1>
-    <p>This Game is Created by FoxWallet Fan "TerminatorT800".<br>
-    It is not associated with FoxWallet team and is for Fun only.<br>
-    Wallet connect is not required to play game.<br>
-    FoxCredits and other winning are for fun only but in future I will introduce NFT minting from your game score on Base and Monad testnets.</p>
-    <button class="btn" onclick="startGame()">Start Game</button>
+    <button class="game-button" onclick="showDisclaimer()">Start Game</button>
   </div>
 
-  <canvas id="gameCanvas" width="800" height="600"></canvas>
+  <div id="disclaimer" style="display:none;">
+    <p>
+      This Game is Created by FoxWallet Fan "TerminatorT800". It is not associated with FoxWallet team and is for Fun only. Wallet connect is not required to play game. FoxCredits and other winning are for fun only but in future I will introduce NFT minting from your game score on Base and Monad testnets.
+    </p>
+    <button class="game-button" onclick="startGame()">Continue</button>
+  </div>
+
+  <div id="end-screen" style="display:none;">
+    <h1>Game Over</h1>
+    <button class="game-button" onclick="window.location.reload()">Restart Game</button>
+  </div>
+
+  <div id="pause-label" class="pause-label">Paused</div>
+
+  <canvas id="gameCanvas" width="1024" height="576"></canvas>
   <div id="ui">
-    FoxCredits: <span id="credits">1000</span><br>
-    Lives: <span id="lives">20</span><br>
-    Wave: <span id="wave">0</span>
+    <div>FoxCredits: <span id="credits">1000</span></div>
+    <div>Lives: <span id="lives">20</span></div>
+    <div>Wave: <span id="wave">1</span></div>
   </div>
-  <div id="controls">
-    <button class="btn" onclick="togglePause()">Pause/Resume</button>
-    <button class="btn" onclick="nextWave()">Next Wave</button>
-    <button class="btn" onclick="exitGame()">Exit</button>
-  </div>
-  <div id="intro">
-    🛡️ Build towers by clicking the field!<br>
-    🔧 Upgrade them by clicking again!<br>
-    🎯 Defend against incoming waves!<br>
-    🪙 Earn FoxCredits with each kill!<br>
-    ❤️ You have 20 lives — don’t let enemies pass!
+  <div id="buttons">
+    <button class="game-button" onclick="togglePause()">Pause/Resume</button>
+    <button class="game-button" onclick="nextWave()">Next Wave</button>
+    <button class="game-button" onclick="exitGame()">Exit</button>
   </div>
 
-  <audio id="bgMusic" src="https://www.bensound.com/bensound-music/bensound-energy.mp3" loop></audio>
-  <audio id="killSound" src="https://www.fesliyanstudios.com/play-mp3/387" preload="auto"></audio>
-  <audio id="lifeLostSound" src="https://www.fesliyanstudios.com/play-mp3/438" preload="auto"></audio>
-  <audio id="gameOverSound" src="https://www.fesliyanstudios.com/play-mp3/6677" preload="auto"></audio>
+  <audio id="bg-music" src="background.mp3" loop></audio>
+  <audio id="life-lost" src="life-lost.mp3"></audio>
+  <audio id="place-tower" src="tower-place.mp3"></audio>
+  <audio id="tower-upgrade" src="tower-upgrade.mp3"></audio>
+  <audio id="tower-sell" src="tower-sell.mp3"></audio>
+  <audio id="monster-killed" src="monster-killed.mp3"></audio>
 
   <script>
-    let gameStarted = false;
-    function startGame() {
-      document.getElementById('disclaimer').style.display = 'none';
-      document.getElementById('bgMusic').play();
-      gameStarted = true;
-      initGame();
-    }
-
-    let canvas = document.getElementById("gameCanvas");
-    let ctx = canvas.getContext("2d");
-
-    let credits = 1000;
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    let isPaused = false;
+    let wave = 1;
     let lives = 20;
-    let wave = 0;
-    let paused = false;
-    let towers = [];
-    let monsters = [];
-    let towerImages = [];
-    let monsterImages = [];
+    let credits = 1000;
 
-    const TOWER_COST = 200;
-    const UPGRADE_COST = 100;
+    const pauseLabel = document.getElementById('pause-label');
 
-    const TOWER_IMAGE_URLS = [
-      "https://hc.foxwallet.com/assets/images/FoxWallet-app-black-a72070c646d57659bc5f2564c539c24e.png",
-      "https://hc.foxwallet.com/assets/images/FoxWallet-app-green-ea216a4e4ada916e00b3a4eedcd4144f.png",
-      "https://hc.foxwallet.com/assets/images/FoxWallet-logo-675024cf73c369d37dbb9a1de5c1b047.png"
+    const towerImages = [new Image(), new Image(), new Image()];
+    towerImages[0].src = "https://raw.githubusercontent.com/Bilalahmad123/FoxWallet-Tower-Defense-/main/Tower%201.png";
+    towerImages[1].src = "https://raw.githubusercontent.com/Bilalahmad123/FoxWallet-Tower-Defense-/main/Tower%202.png";
+    towerImages[2].src = "https://raw.githubusercontent.com/Bilalahmad123/FoxWallet-Tower-Defense-/main/Tower%203.png";
+
+    const monsterImages = [new Image(), new Image(), new Image()];
+    monsterImages[0].src = "https://raw.githubusercontent.com/Bilalahmad123/FoxWallet-Tower-Defense-/main/monster%201.jpg";
+    monsterImages[1].src = "https://raw.githubusercontent.com/Bilalahmad123/FoxWallet-Tower-Defense-/main/Monster%202.jpg";
+    monsterImages[2].src = "https://raw.githubusercontent.com/Bilalahmad123/FoxWallet-Tower-Defense-/main/Monster%203.jpg";
+
+    const sfx = {
+      place: document.getElementById('place-tower'),
+      upgrade: document.getElementById('tower-upgrade'),
+      sell: document.getElementById('tower-sell'),
+      kill: document.getElementById('monster-killed'),
+      lose: document.getElementById('life-lost')
+    };
+
+    const path = [
+      { x: 900, y: 0 }, { x: 900, y: 100 }, { x: 700, y: 100 },
+      { x: 700, y: 300 }, { x: 500, y: 300 }, { x: 500, y: 200 },
+      { x: 300, y: 200 }, { x: 300, y: 400 }, { x: 100, y: 400 },
+      { x: 100, y: 576 }
     ];
 
-    const MONSTER_IMAGE_URLS = [
-      "https://logotyp.us/file/okx.svg",
-      "https://images.ctfassets.net/clixtyxoaeas/1ezuBGezqfIeifWdVtwU4c/d970d4cdf13b163efddddd5709164d2e/MetaMask-icon-Fox.svg",
-      "https://187760183-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2F-MVOiF6Zqit57q_hxJYp%2Fuploads%2FHEjleywo9QOnfYebBPCZ%2FPhantom_SVG_Icon.svg?alt=media&token=71b80a0a-def7-4f98-ae70-5e0843fdaaec"
-    ];
+    const towers = [];
+    const towerSize = 40;
+    const monsters = [];
 
-    function loadImages(urls, callback) {
-      let images = [];
-      let loaded = 0;
-      urls.forEach((url, index) => {
-        let img = new Image();
-        img.crossOrigin = "anonymous";
-        img.onload = () => {
-          loaded++;
-          if (loaded === urls.length) callback(images);
-        };
-        img.src = url;
-        images[index] = img;
-      });
+    function spawnWave() {
+      for (let i = 0; i < wave; i++) {
+        const type = Math.floor(Math.random() * 3);
+        monsters.push({
+          type,
+          x: path[0].x,
+          y: path[0].y,
+          hp: 10 * Math.pow(1.01, wave),
+          speed: 1,
+          pathIndex: 0
+        });
+      }
     }
 
-    function initGame() {
-      loadImages(TOWER_IMAGE_URLS, imgs => {
-        towerImages = imgs;
-        loadImages(MONSTER_IMAGE_URLS, mons => {
-          monsterImages = mons;
-          startLoop();
-        });
-      });
-
-      canvas.addEventListener("click", (e) => {
-        let rect = canvas.getBoundingClientRect();
-        let x = e.clientX - rect.left;
-        let y = e.clientY - rect.top;
-        let existing = towers.find(t => Math.abs(t.x - x) < 40 && Math.abs(t.y - y) < 40);
-        if (existing && credits >= UPGRADE_COST && existing.level < 5) {
-          credits -= UPGRADE_COST;
-          existing.level++;
-        } else if (!existing && credits >= TOWER_COST) {
-          towers.push({ x, y, type: Math.floor(Math.random() * 3), level: 0 });
-          credits -= TOWER_COST;
+    function moveMonsters() {
+      for (let m of monsters) {
+        const target = path[m.pathIndex + 1];
+        if (!target) {
+          monsters.splice(monsters.indexOf(m), 1);
+          loseLife();
+          continue;
         }
-        updateUI();
-      });
-    }
-
-    function startLoop() {
-      setInterval(() => {
-        if (!paused) update();
-        draw();
-      }, 1000 / 60);
-      setInterval(() => {
-        if (!paused) nextWave();
-      }, 30000);
-    }
-
-    function update() {
-      for (let i = monsters.length - 1; i >= 0; i--) {
-        let monster = monsters[i];
-        monster.x += 0.5 + wave * 0.05;
-
-        // Tower attack logic
-        towers.forEach(t => {
-          if (Math.abs(t.x - monster.x) < 100 && Math.abs(t.y - monster.y) < 100) {
-            monster.hp -= 0.2 * (1 + t.level);
-          }
-        });
-
-        if (monster.hp <= 0) {
-          monsters.splice(i, 1);
-          credits += 50;
-          document.getElementById('killSound').play();
-        } else if (monster.x > canvas.width) {
-          monsters.splice(i, 1);
-          lives--;
-          document.getElementById('lifeLostSound').play();
+        const dx = target.x - m.x;
+        const dy = target.y - m.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < m.speed) {
+          m.pathIndex++;
+        } else {
+          m.x += (dx / dist) * m.speed;
+          m.y += (dy / dist) * m.speed;
         }
       }
-      if (lives <= 0) {
-        paused = true;
-        document.getElementById('gameOverSound').play();
-        setTimeout(() => {
-          alert("Game Over");
-        }, 500);
+    }
+
+    function towersAttack() {
+      for (let t of towers) {
+        for (let m of monsters) {
+          const dx = t.x - m.x;
+          const dy = t.y - m.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const range = 100 + t.type * 20;
+          if (dist < range) {
+            m.hp -= (1 + t.level);
+            ctx.beginPath();
+            ctx.moveTo(t.x, t.y);
+            ctx.lineTo(m.x, m.y);
+            ctx.strokeStyle = "red";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            if (m.hp <= 0) {
+              credits += 10;
+              sfx.kill.play();
+              monsters.splice(monsters.indexOf(m), 1);
+            }
+            break;
+          }
+        }
+      }
+    }
+
+    canvas.addEventListener("click", (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      for (let t of towers) {
+        if (Math.abs(t.x - x) < towerSize && Math.abs(t.y - y) < towerSize) {
+          if (confirm("Upgrade tower? (Cancel to sell)")) {
+            if (t.level < 5 && credits >= 50 * (t.level + 1)) {
+              credits -= 50 * (t.level + 1);
+              setTimeout(() => {
+                t.level++;
+                updateUI();
+                sfx.upgrade.play();
+              }, 5000 * (t.level + 1));
+            }
+          } else {
+            credits += 50 * (t.level + 1);
+            towers.splice(towers.indexOf(t), 1);
+            updateUI();
+            sfx.sell.play();
+          }
+          return;
+        }
+      }
+
+      for (let i = 0; i < path.length - 1; i++) {
+        const p1 = path[i], p2 = path[i + 1], buffer = 30;
+        if (Math.min(p1.x, p2.x) - buffer <= x && x <= Math.max(p1.x, p2.x) + buffer &&
+            Math.min(p1.y, p2.y) - buffer <= y && y <= Math.max(p1.y, p2.y) + buffer) return;
+      }
+      towers.push({ x, y, type: Math.floor(Math.random() * 3), level: 0 });
+      sfx.place.play();
+    });
+
+    function drawPath() {
+      ctx.strokeStyle = '#999';
+      ctx.lineWidth = 40;
+      ctx.beginPath();
+      ctx.moveTo(path[0].x, path[0].y);
+      for (let i = 1; i < path.length; i++) {
+        ctx.lineTo(path[i].x, path[i].y);
+      }
+      ctx.stroke();
+    }
+
+    function drawGame() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#6c3';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      drawPath();
+
+      for (let t of towers) {
+        ctx.drawImage(towerImages[t.type], t.x - 20, t.y - 20, towerSize, towerSize);
+      }
+
+      for (let m of monsters) {
+        ctx.drawImage(monsterImages[m.type], m.x - 15, m.y - 15, 30, 30);
+        ctx.fillStyle = "red";
+        ctx.fillRect(m.x - 15, m.y - 20, 30, 5);
+        ctx.fillStyle = "green";
+        ctx.fillRect(m.x - 15, m.y - 20, (m.hp / (10 * Math.pow(1.01, wave))) * 30, 5);
+      }
+    }
+
+    function updateUI() {
+      document.getElementById('credits').innerText = credits;
+      document.getElementById('lives').innerText = lives;
+      document.getElementById('wave').innerText = wave;
+    }
+
+    function gameLoop() {
+      if (!isPaused) {
+        pauseLabel.style.display = 'none';
+        moveMonsters();
+        towersAttack();
+        drawGame();
+      } else {
+        pauseLabel.style.display = 'block';
       }
       updateUI();
+      requestAnimationFrame(gameLoop);
     }
 
-    function draw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      monsters.forEach(monster => {
-        ctx.drawImage(monsterImages[monster.type], monster.x, monster.y, 40, 40);
-      });
-      towers.forEach(tower => {
-        ctx.drawImage(towerImages[tower.type], tower.x, tower.y, 50, 50);
-        ctx.fillStyle = "white";
-        ctx.fillText("Lv " + tower.level, tower.x + 10, tower.y + 60);
-      });
+    function togglePause() {
+      isPaused = !isPaused;
     }
 
     function nextWave() {
       if (wave >= 100) return;
       wave++;
-      for (let i = 0; i < wave; i++) {
-        monsters.push({
-          x: 0,
-          y: 100 + (i * 40) % 400,
-          type: i % 3,
-          hp: 100 * (1 + 0.01 * wave),
-        });
+      spawnWave();
+      updateUI();
+    }
+
+    function loseLife() {
+      lives--;
+      sfx.lose.play();
+      if (lives <= 0) {
+        document.getElementById('end-screen').style.display = 'flex';
+        isPaused = true;
       }
       updateUI();
     }
 
-    function togglePause() {
-      paused = !paused;
+    function startGame() {
+      document.getElementById('disclaimer').style.display = 'none';
+      document.getElementById('bg-music').play();
+      spawnWave();
+      updateUI();
+      gameLoop();
+    }
+
+    function showDisclaimer() {
+      document.getElementById('start-screen').style.display = 'none';
+      document.getElementById('disclaimer').style.display = 'flex';
     }
 
     function exitGame() {
-      location.reload();
-    }
-
-    function updateUI() {
-      document.getElementById("credits").textContent = Math.floor(credits);
-      document.getElementById("lives").textContent = lives;
-      document.getElementById("wave").textContent = wave;
+      if (confirm('Are you sure you want to exit?')) {
+        window.location.reload();
+      }
     }
   </script>
 </body>
