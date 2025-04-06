@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FoxWallet Tower Defense</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      background-color: #111;
+      overflow: hidden;
+    }
+    #gameCanvas {
+      display: block;
+      margin: auto;
+      background: url('https://freepngimg.com/thumb/grass/104352-green-grass-free-transparent-image-hd.png');
+      background-size: cover;
+      border: 2px solid #333;
+    }
+    #ui {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      color: red;
+      font-size: 18px;
+      background-color: rgba(0, 0, 0, 0.6);
+      padding: 10px;
+      border-radius: 8px;
+    }
+    #controls {
+      position: absolute;
+      bottom: 20px;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+    }
+    .btn {
+      padding: 10px 20px;
+      background-color: #333;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    #disclaimer {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.9);
+      color: white;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+    }
+    #intro {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: white;
+      background-color: rgba(0, 0, 0, 0.6);
+      padding: 10px;
+      border-radius: 8px;
+      max-width: 300px;
+    }
+  </style>
+</head>
+<body>
+  <div id="disclaimer">
+    <h1>FoxWallet Tower Defense</h1>
+    <p>This Game is Created by FoxWallet Fan "TerminatorT800".<br>
+    It is not associated with FoxWallet team and is for Fun only.<br>
+    Wallet connect is not required to play game.<br>
+    FoxCredits and other winning are for fun only but in future I will introduce NFT minting from your game score on Base and Monad testnets.</p>
+    <button class="btn" onclick="startGame()">Start Game</button>
+  </div>
+
+  <canvas id="gameCanvas" width="800" height="600"></canvas>
+  <div id="ui">
+    FoxCredits: <span id="credits">1000</span><br>
+    Lives: <span id="lives">20</span><br>
+    Wave: <span id="wave">0</span>
+  </div>
+  <div id="controls">
+    <button class="btn" onclick="togglePause()">Pause/Resume</button>
+    <button class="btn" onclick="nextWave()">Next Wave</button>
+    <button class="btn" onclick="exitGame()">Exit</button>
+  </div>
+  <div id="intro">
+    🛡️ Build towers by clicking the field!<br>
+    🔧 Upgrade them by clicking again!<br>
+    🎯 Defend against incoming waves!<br>
+    🪙 Earn FoxCredits with each kill!<br>
+    ❤️ You have 20 lives — don’t let enemies pass!
+  </div>
+
+  <audio id="bgMusic" src="https://www.bensound.com/bensound-music/bensound-energy.mp3" loop></audio>
+  <audio id="killSound" src="https://www.fesliyanstudios.com/play-mp3/387" preload="auto"></audio>
+  <audio id="lifeLostSound" src="https://www.fesliyanstudios.com/play-mp3/438" preload="auto"></audio>
+  <audio id="gameOverSound" src="https://www.fesliyanstudios.com/play-mp3/6677" preload="auto"></audio>
+
+  <script>
+    let gameStarted = false;
+    function startGame() {
+      document.getElementById('disclaimer').style.display = 'none';
+      document.getElementById('bgMusic').play();
+      gameStarted = true;
+      initGame();
+    }
+
+    let canvas = document.getElementById("gameCanvas");
+    let ctx = canvas.getContext("2d");
+
+    let credits = 1000;
+    let lives = 20;
+    let wave = 0;
+    let paused = false;
+    let towers = [];
+    let monsters = [];
+    let towerImages = [];
+    let monsterImages = [];
+
+    const TOWER_COST = 200;
+    const UPGRADE_COST = 100;
+
+    const TOWER_IMAGE_URLS = [
+      "https://hc.foxwallet.com/assets/images/FoxWallet-app-black-a72070c646d57659bc5f2564c539c24e.png",
+      "https://hc.foxwallet.com/assets/images/FoxWallet-app-green-ea216a4e4ada916e00b3a4eedcd4144f.png",
+      "https://hc.foxwallet.com/assets/images/FoxWallet-logo-675024cf73c369d37dbb9a1de5c1b047.png"
+    ];
+
+    const MONSTER_IMAGE_URLS = [
+      "https://logotyp.us/file/okx.svg",
+      "https://images.ctfassets.net/clixtyxoaeas/1ezuBGezqfIeifWdVtwU4c/d970d4cdf13b163efddddd5709164d2e/MetaMask-icon-Fox.svg",
+      "https://187760183-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2F-MVOiF6Zqit57q_hxJYp%2Fuploads%2FHEjleywo9QOnfYebBPCZ%2FPhantom_SVG_Icon.svg?alt=media&token=71b80a0a-def7-4f98-ae70-5e0843fdaaec"
+    ];
+
+    function loadImages(urls, callback) {
+      let images = [];
+      let loaded = 0;
+      urls.forEach((url, index) => {
+        let img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+          loaded++;
+          if (loaded === urls.length) callback(images);
+        };
+        img.src = url;
+        images[index] = img;
+      });
+    }
+
+    function initGame() {
+      loadImages(TOWER_IMAGE_URLS, imgs => {
+        towerImages = imgs;
+        loadImages(MONSTER_IMAGE_URLS, mons => {
+          monsterImages = mons;
+          startLoop();
+        });
+      });
+
+      canvas.addEventListener("click", (e) => {
+        let rect = canvas.getBoundingClientRect();
+        let x = e.clientX - rect.left;
+        let y = e.clientY - rect.top;
+        let existing = towers.find(t => Math.abs(t.x - x) < 40 && Math.abs(t.y - y) < 40);
+        if (existing && credits >= UPGRADE_COST && existing.level < 5) {
+          credits -= UPGRADE_COST;
+          existing.level++;
+        } else if (!existing && credits >= TOWER_COST) {
+          towers.push({ x, y, type: Math.floor(Math.random() * 3), level: 0 });
+          credits -= TOWER_COST;
+        }
+        updateUI();
+      });
+    }
+
+    function startLoop() {
+      setInterval(() => {
+        if (!paused) update();
+        draw();
+      }, 1000 / 60);
+      setInterval(() => {
+        if (!paused) nextWave();
+      }, 30000);
+    }
+
+    function update() {
+      for (let i = monsters.length - 1; i >= 0; i--) {
+        let monster = monsters[i];
+        monster.x += 0.5 + wave * 0.05;
+
+        // Tower attack logic
+        towers.forEach(t => {
+          if (Math.abs(t.x - monster.x) < 100 && Math.abs(t.y - monster.y) < 100) {
+            monster.hp -= 0.2 * (1 + t.level);
+          }
+        });
+
+        if (monster.hp <= 0) {
+          monsters.splice(i, 1);
+          credits += 50;
+          document.getElementById('killSound').play();
+        } else if (monster.x > canvas.width) {
+          monsters.splice(i, 1);
+          lives--;
+          document.getElementById('lifeLostSound').play();
+        }
+      }
+      if (lives <= 0) {
+        paused = true;
+        document.getElementById('gameOverSound').play();
+        setTimeout(() => {
+          alert("Game Over");
+        }, 500);
+      }
+      updateUI();
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      monsters.forEach(monster => {
+        ctx.drawImage(monsterImages[monster.type], monster.x, monster.y, 40, 40);
+      });
+      towers.forEach(tower => {
+        ctx.drawImage(towerImages[tower.type], tower.x, tower.y, 50, 50);
+        ctx.fillStyle = "white";
+        ctx.fillText("Lv " + tower.level, tower.x + 10, tower.y + 60);
+      });
+    }
+
+    function nextWave() {
+      if (wave >= 100) return;
+      wave++;
+      for (let i = 0; i < wave; i++) {
+        monsters.push({
+          x: 0,
+          y: 100 + (i * 40) % 400,
+          type: i % 3,
+          hp: 100 * (1 + 0.01 * wave),
+        });
+      }
+      updateUI();
+    }
+
+    function togglePause() {
+      paused = !paused;
+    }
+
+    function exitGame() {
+      location.reload();
+    }
+
+    function updateUI() {
+      document.getElementById("credits").textContent = Math.floor(credits);
+      document.getElementById("lives").textContent = lives;
+      document.getElementById("wave").textContent = wave;
+    }
+  </script>
+</body>
+</html>
