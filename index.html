@@ -107,17 +107,235 @@
     <button class="game-button" onclick="exitGame()">Exit</button>
   </div>
 
-  <!-- Updated audio paths -->
-  <audio id="bg-music" src="FoxWallet-Tower-Defense/assets/background.mp3" loop></audio>
-  <audio id="life-lost" src="FoxWallet-Tower-Defense/assets/life-lost.mp3"></audio>
-  <audio id="place-tower" src="FoxWallet-Tower-Defense/assets/tower-place.mp3"></audio>
-  <audio id="tower-upgrade" src="FoxWallet-Tower-Defense/assets/tower-upgrade.mp3"></audio>
-  <audio id="tower-sell" src="FoxWallet-Tower-Defense/assets/tower-sell.mp3"></audio>
-  <audio id="monster-killed" src="FoxWallet-Tower-Defense/assets/monster-killed.mp3"></audio>
+  <audio id="bg-music" src="background.mp3" loop></audio>
+  <audio id="life-lost" src="life-lost.mp3"></audio>
+  <audio id="place-tower" src="tower-place.mp3"></audio>
+  <audio id="tower-upgrade" src="tower-upgrade.mp3"></audio>
+  <audio id="tower-sell" src="tower-sell.mp3"></audio>
+  <audio id="monster-killed" src="monster-killed.mp3"></audio>
 
   <script>
-    // Your existing game JavaScript code here (intact, unchanged)
-    // Use the previously provided JavaScript implementation
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    let isPaused = false;
+    let wave = 1;
+    let lives = 20;
+    let credits = 1000;
+
+    const pauseLabel = document.getElementById('pause-label');
+
+    const towerImages = [new Image(), new Image(), new Image()];
+    towerImages[0].src = "https://raw.githubusercontent.com/Bilalahmad123/FoxWallet-Tower-Defense-/main/Tower%201.png";
+    towerImages[1].src = "https://raw.githubusercontent.com/Bilalahmad123/FoxWallet-Tower-Defense-/main/Tower%202.png";
+    towerImages[2].src = "https://raw.githubusercontent.com/Bilalahmad123/FoxWallet-Tower-Defense-/main/Tower%203.png";
+
+    const monsterImages = [new Image(), new Image(), new Image()];
+    monsterImages[0].src = "https://raw.githubusercontent.com/Bilalahmad123/FoxWallet-Tower-Defense-/main/monster%201.jpg";
+    monsterImages[1].src = "https://raw.githubusercontent.com/Bilalahmad123/FoxWallet-Tower-Defense-/main/Monster%202.jpg";
+    monsterImages[2].src = "https://raw.githubusercontent.com/Bilalahmad123/FoxWallet-Tower-Defense-/main/Monster%203.jpg";
+
+    const sfx = {
+      place: document.getElementById('place-tower'),
+      upgrade: document.getElementById('tower-upgrade'),
+      sell: document.getElementById('tower-sell'),
+      kill: document.getElementById('monster-killed'),
+      lose: document.getElementById('life-lost')
+    };
+
+    const path = [
+      { x: 900, y: 0 }, { x: 900, y: 100 }, { x: 700, y: 100 },
+      { x: 700, y: 300 }, { x: 500, y: 300 }, { x: 500, y: 200 },
+      { x: 300, y: 200 }, { x: 300, y: 400 }, { x: 100, y: 400 },
+      { x: 100, y: 576 }
+    ];
+
+    const towers = [];
+    const towerSize = 40;
+    const monsters = [];
+
+    function spawnWave() {
+      for (let i = 0; i < wave; i++) {
+        const type = Math.floor(Math.random() * 3);
+        monsters.push({
+          type,
+          x: path[0].x,
+          y: path[0].y,
+          hp: 10 * Math.pow(1.01, wave),
+          speed: 1,
+          pathIndex: 0
+        });
+      }
+    }
+
+    function moveMonsters() {
+      for (let m of monsters) {
+        const target = path[m.pathIndex + 1];
+        if (!target) {
+          monsters.splice(monsters.indexOf(m), 1);
+          loseLife();
+          continue;
+        }
+        const dx = target.x - m.x;
+        const dy = target.y - m.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < m.speed) {
+          m.pathIndex++;
+        } else {
+          m.x += (dx / dist) * m.speed;
+          m.y += (dy / dist) * m.speed;
+        }
+      }
+    }
+
+    function towersAttack() {
+      for (let t of towers) {
+        for (let m of monsters) {
+          const dx = t.x - m.x;
+          const dy = t.y - m.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const range = 100 + t.type * 20;
+          if (dist < range) {
+            m.hp -= (1 + t.level);
+            ctx.beginPath();
+            ctx.moveTo(t.x, t.y);
+            ctx.lineTo(m.x, m.y);
+            ctx.strokeStyle = "red";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            if (m.hp <= 0) {
+              credits += 10;
+              sfx.kill.play();
+              monsters.splice(monsters.indexOf(m), 1);
+            }
+            break;
+          }
+        }
+      }
+    }
+
+    canvas.addEventListener("click", (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      for (let t of towers) {
+        if (Math.abs(t.x - x) < towerSize && Math.abs(t.y - y) < towerSize) {
+          if (confirm("Upgrade tower? (Cancel to sell)")) {
+            if (t.level < 5 && credits >= 50 * (t.level + 1)) {
+              credits -= 50 * (t.level + 1);
+              setTimeout(() => {
+                t.level++;
+                updateUI();
+                sfx.upgrade.play();
+              }, 5000 * (t.level + 1));
+            }
+          } else {
+            credits += 50 * (t.level + 1);
+            towers.splice(towers.indexOf(t), 1);
+            updateUI();
+            sfx.sell.play();
+          }
+          return;
+        }
+      }
+
+      for (let i = 0; i < path.length - 1; i++) {
+        const p1 = path[i], p2 = path[i + 1], buffer = 30;
+        if (Math.min(p1.x, p2.x) - buffer <= x && x <= Math.max(p1.x, p2.x) + buffer &&
+            Math.min(p1.y, p2.y) - buffer <= y && y <= Math.max(p1.y, p2.y) + buffer) return;
+      }
+      towers.push({ x, y, type: Math.floor(Math.random() * 3), level: 0 });
+      sfx.place.play();
+    });
+
+    function drawPath() {
+      ctx.strokeStyle = '#999';
+      ctx.lineWidth = 40;
+      ctx.beginPath();
+      ctx.moveTo(path[0].x, path[0].y);
+      for (let i = 1; i < path.length; i++) {
+        ctx.lineTo(path[i].x, path[i].y);
+      }
+      ctx.stroke();
+    }
+
+    function drawGame() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#6c3';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      drawPath();
+
+      for (let t of towers) {
+        ctx.drawImage(towerImages[t.type], t.x - 20, t.y - 20, towerSize, towerSize);
+      }
+
+      for (let m of monsters) {
+        ctx.drawImage(monsterImages[m.type], m.x - 15, m.y - 15, 30, 30);
+        ctx.fillStyle = "red";
+        ctx.fillRect(m.x - 15, m.y - 20, 30, 5);
+        ctx.fillStyle = "green";
+        ctx.fillRect(m.x - 15, m.y - 20, (m.hp / (10 * Math.pow(1.01, wave))) * 30, 5);
+      }
+    }
+
+    function updateUI() {
+      document.getElementById('credits').innerText = credits;
+      document.getElementById('lives').innerText = lives;
+      document.getElementById('wave').innerText = wave;
+    }
+
+    function gameLoop() {
+      if (!isPaused) {
+        pauseLabel.style.display = 'none';
+        moveMonsters();
+        towersAttack();
+        drawGame();
+      } else {
+        pauseLabel.style.display = 'block';
+      }
+      updateUI();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function togglePause() {
+      isPaused = !isPaused;
+    }
+
+    function nextWave() {
+      if (wave >= 100) return;
+      wave++;
+      spawnWave();
+      updateUI();
+    }
+
+    function loseLife() {
+      lives--;
+      sfx.lose.play();
+      if (lives <= 0) {
+        document.getElementById('end-screen').style.display = 'flex';
+        isPaused = true;
+      }
+      updateUI();
+    }
+
+    function startGame() {
+      document.getElementById('disclaimer').style.display = 'none';
+      document.getElementById('bg-music').play();
+      spawnWave();
+      updateUI();
+      gameLoop();
+    }
+
+    function showDisclaimer() {
+      document.getElementById('start-screen').style.display = 'none';
+      document.getElementById('disclaimer').style.display = 'flex';
+    }
+
+    function exitGame() {
+      if (confirm('Are you sure you want to exit?')) {
+        window.location.reload();
+      }
+    }
   </script>
 </body>
 </html>
